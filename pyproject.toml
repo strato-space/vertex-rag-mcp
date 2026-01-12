@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "vertex-rag-mcp"
+version = "0.0.1"
+description = "Vertex RAG MCP server"
+readme = "README.md"
+requires-python = ">=3.13.5,<3.14"
+dependencies = [
+  "mcp>=1.22.0",
+  "google-cloud-aiplatform",
+  "google-api-python-client",
+  "google-auth",
+  "fast-agent-mcp",
+]
+
+[project.scripts]
+vertex-rag-mcp = "vertex_rag_mcp:main"
+
+[tool.hatch.build.targets.wheel]
+packages = [
+  "src/vertex_rag_mcp",
+]
+
+[tool.uv]
+package = true
+
+[tool.uv.sources]
+fast-agent-mcp = { path = "../fast-agent" }

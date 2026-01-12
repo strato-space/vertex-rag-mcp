@@ -1,0 +1,6 @@
+fastagent.secrets.yaml
+.env
+.venv
+__pycache__/
+*.pyc
+*.egg-info/
