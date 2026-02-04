@@ -25,6 +25,22 @@ def mini_rag(
     return vertex_rag_tool.mini_rag(query=query, drive_id=drive_id, top_k=top_k)
 
 
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+def list_drive_files(
+    drive_id: Annotated[str, "Google Drive folder ID to list files from."],
+    recursive: Annotated[bool, "Recursively traverse nested folders."] = True,
+    include_folders: Annotated[bool, "Include folder entries in results."] = False,
+    limit: Annotated[int, "Optional max number of returned items (0 = no limit)."] = 0,
+) -> object:
+    """List Drive files in a folder with sizes and timestamps."""
+    return vertex_rag_tool.list_drive_files(
+        drive_id=drive_id,
+        recursive=recursive,
+        include_folders=include_folders,
+        limit=limit or None,
+    )
+
+
 async def main():
     # Run the server
     await mcp.run_stdio_async()

@@ -2,6 +2,10 @@
 
 MCP server exposing Vertex AI RAG mini_rag.
 
+## Tools
+- `mini_rag(query, drive_id, top_k=5)` — query Vertex RAG against a Drive folder.
+- `list_drive_files(drive_id, recursive=True, include_folders=False, limit=0)` — list Drive files in a folder with sizes and timestamps.
+
 ## Setup
 - Create `fastagent.secrets.yaml` in the repo root (see `fastagent.secrets.yaml.example`).
 - Ensure Google credentials are available (for example `GOOGLE_APPLICATION_CREDENTIALS`).

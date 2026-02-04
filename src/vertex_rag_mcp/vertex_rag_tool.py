@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import google.auth
 import vertexai
 from googleapiclient.discovery import build
@@ -20,6 +22,7 @@ from fast_agent.config import get_settings
 CONFIG_PATH = "fastagent.secrets.yaml"
 EMBEDDING_MODEL = "text-embedding-005"
 SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
+FOLDER_MIME_TYPE = "application/vnd.google-apps.folder"
 
 _vertex_initialized = False
 
@@ -56,6 +59,103 @@ def _drive_folder_name(folder_id: str) -> str:
         .execute()
     )
     return payload["name"]
+
+
+def list_drive_files(
+    drive_id: str,
+    *,
+    recursive: bool = True,
+    include_folders: bool = False,
+    limit: int | None = None,
+) -> list[dict]:
+    """List Google Drive files under a folder ID.
+
+    Args:
+        drive_id: Google Drive folder ID to list.
+        recursive: If True, traverses nested folders.
+        include_folders: If True, include folder entries in the result.
+        limit: Optional max number of returned entries (None/unset = no limit).
+
+    Returns:
+        List of dicts with file metadata: id, name, path, size, created_time, modified_time.
+        size is in bytes when available (Google Docs may not have a size).
+    """
+    if not drive_id:
+        raise ValueError("drive_id must be a non-empty Google Drive ID.")
+
+    credentials, _ = google.auth.default(scopes=SCOPES)
+    drive_service = build("drive", "v3", credentials=credentials)
+
+    def list_children(folder_id: str) -> list[dict]:
+        query = f"'{folder_id}' in parents and trashed = false"
+        fields = "nextPageToken, files(id,name,mimeType,size,createdTime,modifiedTime)"
+        items: list[dict] = []
+        page_token: str | None = None
+        while True:
+            resp = (
+                drive_service.files()
+                .list(
+                    q=query,
+                    pageSize=1000,
+                    pageToken=page_token,
+                    fields=fields,
+                    supportsAllDrives=True,
+                    includeItemsFromAllDrives=True,
+                )
+                .execute()
+            )
+            items.extend(resp.get("files", []))
+            page_token = resp.get("nextPageToken")
+            if not page_token:
+                break
+        return items
+
+    results: list[dict] = []
+    visited_folders: set[str] = set()
+    queue: list[tuple[str, str]] = [(drive_id, "")]
+
+    while queue:
+        current_folder_id, current_path = queue.pop(0)
+        if current_folder_id in visited_folders:
+            continue
+        visited_folders.add(current_folder_id)
+
+        for item in list_children(current_folder_id):
+            name = item.get("name") or ""
+            item_path = f"{current_path}/{name}" if current_path else name
+            mime_type = item.get("mimeType")
+            is_folder = mime_type == FOLDER_MIME_TYPE
+
+            size_raw = item.get("size")
+            size: int | None = None
+            if size_raw is not None:
+                try:
+                    size = int(size_raw)
+                except (TypeError, ValueError):
+                    size = None
+
+            row = {
+                "id": item.get("id"),
+                "name": name,
+                "path": item_path,
+                "mime_type": mime_type,
+                "size": size,
+                "created_time": item.get("createdTime"),
+                "modified_time": item.get("modifiedTime"),
+            }
+
+            if is_folder:
+                if include_folders:
+                    results.append(row)
+                if recursive and item.get("id"):
+                    queue.append((item["id"], item_path))
+            else:
+                results.append(row)
+
+            if limit and len(results) >= limit:
+                return results
+
+    return results
 
 
 def _create_and_import_corpus(display_name: str, paths: list[str]) -> rag.RagCorpus:
