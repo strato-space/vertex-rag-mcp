@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import time
+from pathlib import Path
 from collections import deque
 
 import google.auth
@@ -1167,6 +1168,40 @@ def read_multiple_md_files(
         max_table_rows=max_table_rows,
         max_table_cols=max_table_cols,
         chunk_size=chunk_size,
+    )
+
+
+def export(drive_id: str) -> CallToolResult:
+    """Export Drive markdown to ./output/{drive_id}-vertex-rag.md."""
+    result = read_multiple_md_files(drive_id)
+
+    output_text = ""
+    if isinstance(result.structuredContent, dict):
+        output_text = str(result.structuredContent.get("content") or "")
+    if not output_text:
+        for block in result.content or []:
+            if isinstance(block, TextContent) and block.text:
+                output_text = block.text
+                break
+    if not output_text:
+        output_text = "No files matched the request."
+
+    out_dir = Path(__file__).resolve().parents[2] / "output"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"{drive_id}-vertex-rag.md"
+    out_path.write_text(output_text, encoding="utf-8")
+    uri = out_path.resolve().as_uri()
+
+    return CallToolResult(
+        content=[
+            ResourceLink(
+                type="resource_link",
+                uri=uri,
+                name=out_path.name,
+                mimeType="text/markdown",
+            )
+        ],
+        structuredContent={"path": str(out_path)},
     )
 
 

@@ -4,6 +4,7 @@
 - MCP server for Vertex AI RAG and Google Drive content access.
 - Tool implementations live in `src/vertex_rag_mcp/vertex_rag_tool.py`.
 - Server entrypoint is `src/vertex_rag_mcp/server.py`.
+- Exports are written under `./output` via the `export` tool.
 - Run locally with `uv run --directory /home/tools/vertex-rag-mcp --active python -m vertex_rag_mcp.server`.
 
 ## Documentation

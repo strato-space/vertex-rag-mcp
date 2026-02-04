@@ -162,6 +162,14 @@ def read_multiple_md_files(
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+def export(
+    drive_id: Annotated[str, "Google Drive folder ID to export Markdown from."],
+) -> object:
+    """Export Drive markdown to ./output/{drive_id}-vertex-rag.md."""
+    return vertex_rag_tool.export(drive_id=drive_id)
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 def read_single_file_raw(
     file_id: Annotated[str, "Google Drive file ID to download."],
     export_mime: Annotated[
