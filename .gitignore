@@ -4,3 +4,4 @@ fastagent.secrets.yaml
 __pycache__/
 *.pyc
 *.egg-info/
+output/

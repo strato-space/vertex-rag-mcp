@@ -82,9 +82,25 @@ GOOGLE_EXPORT_MIME_TYPES = {
     "application/vnd.google-apps.presentation": "text/plain",
 }
 CONVERT_APP_PROP_KEY = "vertex_rag_mcp_source_id"
+SKIP_OWNERS_ENV = "VERTEX_RAG_MCP_SKIP_OWNERS"
 
 _vertex_initialized = False
 logger = logging.getLogger(__name__)
+
+
+def _skip_owners() -> set[str]:
+    raw = os.getenv(SKIP_OWNERS_ENV, "").strip()
+    if not raw:
+        return set()
+    return {part.strip().lower() for part in raw.split(",") if part.strip()}
+
+
+def _extract_owner(item: dict) -> str:
+    owners = item.get("owners") or []
+    if not owners:
+        return ""
+    owner = owners[0] or {}
+    return owner.get("emailAddress") or owner.get("displayName") or ""
 
 
 def _ensure_logging() -> None:
@@ -300,7 +316,7 @@ def list_drive_files(
 
     def list_children(folder_id: str) -> list[dict]:
         query = f"'{folder_id}' in parents and trashed = false"
-        fields = "nextPageToken, files(id,name,mimeType,size,createdTime,modifiedTime,webViewLink)"
+        fields = "nextPageToken, files(id,name,mimeType,size,createdTime,modifiedTime,webViewLink,owners(displayName,emailAddress))"
         items: list[dict] = []
         page_token: str | None = None
         while True:
@@ -325,6 +341,7 @@ def list_drive_files(
     results: list[dict] = []
     visited_folders: set[str] = set()
     queue: deque[tuple[str, str]] = deque([(drive_id, "")])
+    skip_owners = _skip_owners()
 
     while queue:
         current_folder_id, current_path = queue.popleft()
@@ -345,6 +362,7 @@ def list_drive_files(
                     size = int(size_raw)
                 except (TypeError, ValueError):
                     size = None
+            owner = _extract_owner(item)
 
             row = {
                 "id": item.get("id"),
@@ -352,6 +370,7 @@ def list_drive_files(
                 "path": item_path,
                 "mime_type": mime_type,
                 "size": size,
+                "owner": owner,
                 "created_time": item.get("createdTime"),
                 "modified_time": item.get("modifiedTime"),
                 "web_view_link": item.get("webViewLink"),
@@ -363,6 +382,10 @@ def list_drive_files(
                 if recursive and item.get("id"):
                     queue.append((item["id"], item_path))
             else:
+                if owner and skip_owners:
+                    owner_lower = owner.lower()
+                    if any(token in owner_lower for token in skip_owners):
+                        continue
                 results.append(row)
 
             if limit and len(results) >= limit:
@@ -1097,8 +1120,11 @@ def read_multiple_text_files(
         meta_block = "\n".join(
             [
                 "---",
-                f"url: {web_url or ''}",
+                f"id: {file_id or ''}",
                 f"name: {item.get('name') or ''}",
+                f"url: {web_url or ''}",
+                f"owner: {item.get('owner') or ''}",
+                f"size: {item.get('size') or ''}",
                 f"created: {item.get('created_time') or ''}",
                 f"lastModified: {item.get('modified_time') or ''}",
                 "---",
@@ -1117,7 +1143,7 @@ def read_multiple_text_files(
         total_chars += len(chunk)
         chunks.append(chunk)
 
-    output_text = "\n---\n".join(chunks).strip() if chunks else "No files matched the request."
+    output_text = "\n\n".join(chunks).strip() if chunks else "No files matched the request."
 
     logger.info(
         "read_multiple_text_files done drive_id=%s files=%s total_chars=%s",

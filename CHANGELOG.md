@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-02-05
+### PROBLEM SOLVED
+- None.
+
+### FEATURE IMPLEMENTED
+- **13:05** Added `id`, `owner`, and `size` fields to export metadata headers; introduced `VERTEX_RAG_MCP_SKIP_OWNERS` for skipping files by owner.
+- **13:12** Skip-owner filter now matches substrings (e.g., `task-syncer` matches service account email).
+- **13:15** `read_multiple_text_files` now separates documents with blank lines instead of `---` to avoid delimiter collisions in downstream parsing.
+
+### CHANGES
+- **13:05** `list_drive_files` now includes `owner` in outputs and fetches Drive ownership metadata from the API.
+- **13:05** Added `output/` to `.gitignore`.
+- **13:05** Bumped the package version to `0.0.27` and refreshed `uv.lock`.
+
 ## 2026-02-04
 ### PROBLEM SOLVED
 - **09:30** RAG corpora could be created without any text files, causing `mini_rag` to return empty contexts; corpus selection now skips empty corpora.
